@@ -167,7 +167,7 @@ fun WeatherDetailScreen(
                 val url = if (weatherProvider == "weatherapi" && weatherApiKey.isNotEmpty()) {
                     "https://api.weatherapi.com/v1/forecast.json?key=$weatherApiKey&q=$lat,$lon&days=7&aqi=yes"
                 } else {
-                    "https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&current_weather=true&hourly=temperature_2m,weathercode,relativehumidity_2m,pressure_msl,apparent_temperature&daily=weathercode,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max,windspeed_10m_max&timezone=auto"
+                    "https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&current_weather=true&hourly=temperature_2m,weathercode,relativehumidity_2m,pressure_msl,apparent_temperature,precipitation,precipitation_probability&daily=weathercode,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_sum,precipitation_probability_max,windspeed_10m_max&timezone=auto"
                 }
                 
                 val aqiUrl = "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=$lat&longitude=$lon&hourly=pm10,pm2_5&timezone=auto"
@@ -350,6 +350,12 @@ fun ForecastItemRow(
     val tempSuffix = stringResource(R.string.temp_deg_suffix)
     val displayMax = if (tempUnit == "fahrenheit") (forecast.tempMax * 9/5 + 32).toInt() else forecast.tempMax.toInt()
     val displayMin = if (tempUnit == "fahrenheit") (forecast.tempMin * 9/5 + 32).toInt() else forecast.tempMin.toInt()
+    val rainText = formatRainAmount(forecast.precipitationMm)
+    val precipitationText = if (forecast.precipitationChance > 0) {
+        "$rainText · ${forecast.precipitationChance}%"
+    } else {
+        rainText
+    }
 
     Card(
         modifier = Modifier
@@ -363,7 +369,16 @@ fun ForecastItemRow(
         Column {
             ListItem(
                 headlineContent = { Text(forecast.date) },
-                supportingContent = { Text(WeatherCodes.getDescription(forecast.weatherCode, LocalContext.current)) },
+                supportingContent = {
+                    Column {
+                        Text(WeatherCodes.getDescription(forecast.weatherCode, LocalContext.current))
+                        Text(
+                            text = stringResource(R.string.rain_amount_label, precipitationText),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
                 trailingContent = { Text("$displayMax$tempSuffix / $displayMin$tempSuffix", fontWeight = FontWeight.Bold) },
                 leadingContent = { 
                     Icon(
@@ -384,6 +399,7 @@ fun ForecastItemRow(
                 ) {
                     DetailItemSmall(label = stringResource(R.string.trend_max), value = "$displayMax$tempSuffix")
                     DetailItemSmall(label = stringResource(R.string.trend_min), value = "$displayMin$tempSuffix")
+                    DetailItemSmall(label = stringResource(R.string.rain_label), value = precipitationText)
                 }
             }
         }
@@ -524,6 +540,13 @@ fun HourlyForecastSection(list: List<HourlyForecast>, tempUnit: String) {
                         Text(forecast.time, style = MaterialTheme.typography.labelMedium)
                         Icon(painter = painterResource(WeatherIconMapper.getWeatherIcon(forecast.weatherCode)), contentDescription = null, modifier = Modifier.size(32.dp), tint = Color.Unspecified)
                         Text("$displayTemp$tempSuffix", style = MaterialTheme.typography.titleSmall)
+                        if (forecast.precipitationMm > 0.0) {
+                            Text(
+                                text = formatRainAmount(forecast.precipitationMm),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        }
                     }
                 }
             }
@@ -551,8 +574,22 @@ fun getYesterdayDate(daysAgo: Int): String {
     return SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(cal.time)
 }
 
-data class DailyForecast(val date: String, val tempMax: Double, val tempMin: Double, val weatherCode: Int)
-data class HourlyForecast(val time: String, val temp: Double, val weatherCode: Int)
+data class DailyForecast(
+    val date: String,
+    val tempMax: Double,
+    val tempMin: Double,
+    val weatherCode: Int,
+    val precipitationMm: Double = 0.0,
+    val precipitationChance: Int = 0
+)
+
+data class HourlyForecast(
+    val time: String,
+    val temp: Double,
+    val weatherCode: Int,
+    val precipitationMm: Double = 0.0,
+    val precipitationChance: Int = 0
+)
 
 fun parseForecastData(json: String): List<DailyForecast> {
     val list = mutableListOf<DailyForecast>()
@@ -563,11 +600,22 @@ fun parseForecastData(json: String): List<DailyForecast> {
         val tMax = daily.getJSONArray("temperature_2m_max")
         val tMin = daily.getJSONArray("temperature_2m_min")
         val codes = if (daily.has("weathercode")) daily.getJSONArray("weathercode") else null
+        val precipitation = if (daily.has("precipitation_sum")) daily.getJSONArray("precipitation_sum") else null
+        val precipitationChance = if (daily.has("precipitation_probability_max")) daily.getJSONArray("precipitation_probability_max") else null
         val df = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
         val outF = SimpleDateFormat("EEE, dd. MMM", Locale.getDefault())
         for (i in 0 until times.length()) {
             val date = df.parse(times.getString(i))
-            list.add(DailyForecast(outF.format(date ?: Date()), tMax.getDouble(i), tMin.getDouble(i), codes?.getInt(i) ?: 0))
+            list.add(
+                DailyForecast(
+                    date = outF.format(date ?: Date()),
+                    tempMax = tMax.getDouble(i),
+                    tempMin = tMin.getDouble(i),
+                    weatherCode = codes?.getInt(i) ?: 0,
+                    precipitationMm = precipitation?.optDouble(i, 0.0) ?: 0.0,
+                    precipitationChance = precipitationChance?.optInt(i, 0) ?: 0
+                )
+            )
         }
     } catch (_: Exception) {}
     return list
@@ -580,13 +628,23 @@ fun parseHourlyForecastData(json: String): List<HourlyForecast> {
         val times = hourly.getJSONArray("time")
         val temps = hourly.getJSONArray("temperature_2m")
         val codes = hourly.getJSONArray("weathercode")
+        val precipitation = if (hourly.has("precipitation")) hourly.getJSONArray("precipitation") else null
+        val precipitationChance = if (hourly.has("precipitation_probability")) hourly.getJSONArray("precipitation_probability") else null
         val inF = SimpleDateFormat("yyyy-MM-dd'T'HH:mm", Locale.getDefault())
         val outF = SimpleDateFormat("HH:mm", Locale.getDefault())
         val now = Calendar.getInstance()
         for (i in 0 until times.length()) {
             val date = inF.parse(times.getString(i)) ?: continue
             if (date.after(now.time) && list.size < 24) {
-                list.add(HourlyForecast(outF.format(date), temps.getDouble(i), codes.getInt(i)))
+                list.add(
+                    HourlyForecast(
+                        time = outF.format(date),
+                        temp = temps.getDouble(i),
+                        weatherCode = codes.getInt(i),
+                        precipitationMm = precipitation?.optDouble(i, 0.0) ?: 0.0,
+                        precipitationChance = precipitationChance?.optInt(i, 0) ?: 0
+                    )
+                )
             }
         }
     } catch (_: Exception) {}
@@ -606,7 +664,16 @@ fun parseWeatherApiData(json: String): Pair<List<DailyForecast>, List<HourlyFore
             val day = forecast.getJSONObject(i)
             val astro = day.getJSONObject("day")
             val date = df.parse(day.getString("date"))
-            dailyList.add(DailyForecast(outF.format(date ?: Date()), astro.getDouble("maxtemp_c"), astro.getDouble("mintemp_c"), 0))
+            dailyList.add(
+                DailyForecast(
+                    date = outF.format(date ?: Date()),
+                    tempMax = astro.getDouble("maxtemp_c"),
+                    tempMin = astro.getDouble("mintemp_c"),
+                    weatherCode = 0,
+                    precipitationMm = astro.optDouble("totalprecip_mm", 0.0),
+                    precipitationChance = astro.optInt("daily_chance_of_rain", 0)
+                )
+            )
             
             if (i == 0) {
                 val hours = day.getJSONArray("hour")
@@ -615,7 +682,15 @@ fun parseWeatherApiData(json: String): Pair<List<DailyForecast>, List<HourlyFore
                     val h = hours.getJSONObject(j)
                     if (h.getLong("time_epoch") * 1000 > now && hourlyList.size < 24) {
                         val time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(h.getLong("time_epoch") * 1000))
-                        hourlyList.add(HourlyForecast(time, h.getDouble("temp_c"), 0))
+                        hourlyList.add(
+                            HourlyForecast(
+                                time = time,
+                                temp = h.getDouble("temp_c"),
+                                weatherCode = 0,
+                                precipitationMm = h.optDouble("precip_mm", 0.0),
+                                precipitationChance = h.optInt("chance_of_rain", 0)
+                            )
+                        )
                     }
                 }
             }
@@ -640,4 +715,12 @@ fun formatTime(timeString: String): String {
         val date = SimpleDateFormat("yyyy-MM-dd'T'HH:mm", Locale.getDefault()).parse(timeString)
         SimpleDateFormat("HH:mm", Locale.getDefault()).format(date ?: Date())
     } catch (_: Exception) { timeString.takeLast(5) }
+}
+
+fun formatRainAmount(amountMm: Double): String {
+    return if (amountMm < 0.1) {
+        "0 mm"
+    } else {
+        String.format(Locale.getDefault(), "%.1f mm", amountMm)
+    }
 }

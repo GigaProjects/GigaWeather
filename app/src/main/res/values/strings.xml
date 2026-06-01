@@ -93,6 +93,8 @@
     <string name="wind_label">Wind</string>
     <string name="feels_like_label">Feels like</string>
     <string name="humidity_label">Humidity</string>
+    <string name="rain_label">Rain</string>
+    <string name="rain_amount_label">Rain: %1$s</string>
     <string name="sunrise_label">Sunrise</string>
     <string name="sunset_label">Sunset</string>
     <string name="hourly_label">Hourly</string>
