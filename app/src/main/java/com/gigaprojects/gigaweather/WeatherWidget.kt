@@ -1,4 +1,4 @@
-package com.freetime.geoweather
+package com.gigaprojects.gigaweather
 
 import android.content.Context
 import androidx.compose.runtime.Composable
@@ -28,7 +28,7 @@ import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import androidx.glance.unit.ColorProvider
-import com.freetime.geoweather.data.LocationDatabase
+import com.gigaprojects.gigaweather.data.LocationDatabase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject
@@ -97,7 +97,7 @@ class WeatherWidget : GlanceAppWidget() {
     private fun httpGet(urlString: String): String {
         val url = URL(urlString)
         val c = url.openConnection() as HttpURLConnection
-        c.setRequestProperty("User-Agent", "GeoWeatherApp")
+        c.setRequestProperty("User-Agent", "GigaWeatherApp")
         c.connectTimeout = 10000
         c.readTimeout = 10000
         BufferedReader(InputStreamReader(c.inputStream, StandardCharsets.UTF_8)).use { reader ->

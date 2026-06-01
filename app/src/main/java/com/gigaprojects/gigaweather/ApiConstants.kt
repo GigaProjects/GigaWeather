@@ -1,4 +1,4 @@
-package com.freetime.geoweather
+package com.gigaprojects.gigaweather
 
 object ApiConstants {
     // Open-Meteo APIs (Fallbacks)

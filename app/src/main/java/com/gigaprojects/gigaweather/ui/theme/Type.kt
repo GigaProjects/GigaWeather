@@ -1,4 +1,4 @@
-package com.freetime.geoweather.ui.theme
+package com.gigaprojects.gigaweather.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle

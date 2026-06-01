@@ -1,4 +1,4 @@
-package com.freetime.geoweather.ui.theme
+package com.gigaprojects.gigaweather.ui.theme
 
 import android.os.Build
 import androidx.compose.material3.MaterialTheme
@@ -58,7 +58,7 @@ private val DarkColorScheme = darkColorScheme(
 )
 
 @Composable
-fun GeoWeatherTheme(
+fun GigaWeatherTheme(
     darkTheme: Boolean = false,
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit

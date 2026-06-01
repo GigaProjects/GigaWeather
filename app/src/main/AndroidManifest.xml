@@ -18,43 +18,23 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/icon_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.GeoWeather">
+        android:theme="@style/Theme.GigaWeather">
 
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:theme="@style/Theme.GeoWeather"
+            android:theme="@style/Theme.GigaWeather"
             android:screenOrientation="portrait"
             android:launchMode="singleTask">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <intent-filter>
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-
-                <data
-                    android:scheme="geoweather"
-                    android:host="auth" />
-            </intent-filter>
         </activity>
-        <activity
-            android:name=".AuthActivity"
-            android:screenOrientation="portrait" />
         <activity
             android:name=".WeatherDetailActivity"
             android:screenOrientation="portrait" />
-        <activity android:name=".DonateActivity"
-            android:screenOrientation="portrait" />
-        <activity android:name=".DonateWebViewActivity"
-            android:screenOrientation="portrait" />
-        <activity android:name=".DonatorActivity"
-            android:screenOrientation="portrait" />
         <activity android:name=".SettingsActivity"
-            android:screenOrientation="portrait" />
-        <activity android:name=".ChangeLogActivity"
             android:screenOrientation="portrait" />
 
         <receiver

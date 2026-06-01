@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">GeoWeather</string>
+    <string name="app_name">GigaWeather</string>
     <string name="backToSupPag">Go Back to the Support Page</string>
     <string name="JoiOffDisSer">加入官方 Discord 服务器</string>
     <string name="DonPers">尚未有人进行捐赠。</string>
@@ -229,7 +229,7 @@
     <string name="historical_trends_label">历史趋势（最近 3 天）</string>
     <string name="trend_max">最高</string>
     <string name="trend_min">最低</string>
-    <string name="widget_label">GeoWeather 小</string>
+    <string name="widget_label">GigaWeather Small</string>
     <string name="widget_loading">加载中...</string>
     <string name="no_location_selected">无位置</string>
     <string name="error_connection">错误：检查网络连接</string>

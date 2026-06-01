@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">GeoWeather</string>
+    <string name="app_name">GigaWeather</string>
     <string name="backToSupPag">Tagasi toetuste lehele</string>
     <string name="JoiOffDisSer">Liitu meie ametliku Discordi serveriga</string>
     <string name="DonPers">Keegi pole veel rahaliselt toetanud.</string>

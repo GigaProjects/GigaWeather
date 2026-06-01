@@ -1,4 +1,4 @@
-package com.freetime.geoweather
+package com.gigaprojects.gigaweather
 
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver

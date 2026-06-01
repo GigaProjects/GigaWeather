@@ -3,23 +3,26 @@ plugins {
     alias(libs.plugins.composeCompiler)
     alias(libs.plugins.ksp)
     alias(libs.plugins.room)
-    kotlin("plugin.serialization")
 }
 
 android {
-    namespace = "com.freetime.geoweather"
-    compileSdk = 37
+    namespace = "com.gigaprojects.gigaweather"
+    compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.freetime.geoweather"
+        applicationId = "com.gigaprojects.gigaweather"
         minSdk = 26
-        targetSdk = 37
+        targetSdk = 36
         versionCode = 56
         versionName = "1.8.1"
     }
 
     buildFeatures {
         compose = true
+    }
+
+    androidResources {
+        localeFilters += listOf("en")
     }
 
     lint {
@@ -32,10 +35,6 @@ room {
 }
 
 dependencies {
-    implementation(platform("io.github.jan-tennert.supabase:bom:3.6.0"))
-    implementation("io.github.jan-tennert.supabase:postgrest-kt")
-    implementation("io.github.jan-tennert.supabase:auth-kt-android")
-    implementation("io.github.jan-tennert.supabase:coil3-integration")
     implementation("io.coil-kt:coil-compose:2.7.0")
     implementation("androidx.core:core-ktx:1.18.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.10.0")
@@ -55,9 +54,6 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.11.0")
     implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.8.0-0.6.x-compat")
     implementation("com.russhwolf:multiplatform-settings:1.3.0")
-    implementation(libs.ktor.client.okhttp)
-    implementation(libs.ktor.client.content.negotiation)
-    implementation(libs.ktor.serialization.kotlinx.json)
     implementation(libs.room.runtime)
     implementation(libs.sqlite.bundled)
     implementation(libs.androidx.glance.appwidget)

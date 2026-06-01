@@ -1,4 +1,4 @@
-package com.freetime.geoweather.data
+package com.gigaprojects.gigaweather.data
 
 import androidx.lifecycle.LiveData
 import androidx.room.Dao

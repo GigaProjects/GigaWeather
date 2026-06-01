@@ -1,4 +1,4 @@
-package com.freetime.geoweather
+package com.gigaprojects.gigaweather
 
 import android.Manifest
 import android.content.Context
@@ -43,9 +43,9 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import com.freetime.geoweather.data.LocationDatabase
-import com.freetime.geoweather.data.LocationEntity
-import com.freetime.geoweather.ui.theme.GeoWeatherTheme
+import com.gigaprojects.gigaweather.data.LocationDatabase
+import com.gigaprojects.gigaweather.data.LocationEntity
+import com.gigaprojects.gigaweather.ui.theme.GigaWeatherTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -82,7 +82,7 @@ class WeatherDetailActivity : ComponentActivity() {
             
             val darkTheme = if (useSystemTheme.value) isSystemInDarkTheme() else darkModeEnabled.value
             
-            GeoWeatherTheme(darkTheme = darkTheme, dynamicColor = dynamicColor.value) {
+            GigaWeatherTheme(darkTheme = darkTheme, dynamicColor = dynamicColor.value) {
                 WeatherDetailScreen(
                     name = name,
                     lat = lat,
@@ -534,7 +534,7 @@ fun HourlyForecastSection(list: List<HourlyForecast>, tempUnit: String) {
 private fun httpGet(urlString: String): String {
     val url = URL(urlString)
     val c = url.openConnection() as HttpURLConnection
-    c.setRequestProperty("User-Agent", "GeoWeatherApp")
+    c.setRequestProperty("User-Agent", "GigaWeatherApp")
     c.connectTimeout = 12000
     c.readTimeout = 12000
     BufferedReader(InputStreamReader(c.inputStream, StandardCharsets.UTF_8)).use { reader ->

@@ -1,4 +1,4 @@
-package com.freetime.geoweather
+package com.gigaprojects.gigaweather
 
 import android.Manifest
 import android.annotation.SuppressLint
@@ -22,7 +22,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.StarBorder
@@ -42,9 +41,9 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
-import com.freetime.geoweather.data.LocationDatabase
-import com.freetime.geoweather.data.LocationEntity
-import com.freetime.geoweather.ui.theme.GeoWeatherTheme
+import com.gigaprojects.gigaweather.data.LocationDatabase
+import com.gigaprojects.gigaweather.data.LocationEntity
+import com.gigaprojects.gigaweather.ui.theme.GigaWeatherTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -86,7 +85,8 @@ class MainActivity : ComponentActivity() {
             }
             
             val defaultLoc = locations.find { it.isDefault }
-            val targetLoc = defaultLoc ?: if (locations.size == 1) locations.first() else null
+            val selectedLoc = locations.find { it.selected }
+            val targetLoc = defaultLoc ?: selectedLoc ?: if (locations.size == 1) locations.first() else null
             
             if (targetLoc != null) {
                 val intent = Intent(this@MainActivity, WeatherDetailActivity::class.java).apply {
@@ -106,7 +106,7 @@ class MainActivity : ComponentActivity() {
             
             val darkTheme = if (useSystemTheme.value) isSystemInDarkTheme() else darkModeEnabled.value
             
-            GeoWeatherTheme(darkTheme = darkTheme, dynamicColor = dynamicColor.value) {
+            GigaWeatherTheme(darkTheme = darkTheme, dynamicColor = dynamicColor.value) {
                 MainScreen(
                     onRequestLocationPermission = {
                         requestLocationPermissionLauncher.launch(
@@ -123,9 +123,6 @@ class MainActivity : ComponentActivity() {
                             putExtra("lon", lon)
                         }
                         startActivity(intent)
-                    },
-                    onOpenDonate = {
-                        startActivity(Intent(this, DonateActivity::class.java))
                     }
                 )
             }
@@ -160,8 +157,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainScreen(
     onRequestLocationPermission: () -> Unit,
-    onOpenDetail: (String, Double, Double) -> Unit,
-    onOpenDonate: () -> Unit
+    onOpenDetail: (String, Double, Double) -> Unit
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -243,9 +239,6 @@ fun MainScreen(
                             Icon(Icons.Default.MyLocation, contentDescription = stringResource(R.string.current_location))
                         }
                     }
-                    IconButton(onClick = onOpenDonate) {
-                        Icon(Icons.Default.Favorite, contentDescription = stringResource(R.string.donate_nav_desc), tint = MaterialTheme.colorScheme.primary)
-                    }
                     IconButton(onClick = {
                         context.startActivity(Intent(context, SettingsActivity::class.java))
                     }) {
@@ -325,8 +318,17 @@ fun MainScreen(
             onDismiss = { showAddDialog = false },
             onAdd = { name, lat, lon ->
                 scope.launch(Dispatchers.IO) {
+                    val shouldMakeDefault = locations.isEmpty()
                     db.locationDao().deselectAllLocations()
-                    db.locationDao().insertLocation(LocationEntity(name = name, latitude = lat, longitude = lon, selected = true))
+                    db.locationDao().insertLocation(
+                        LocationEntity(
+                            name = name,
+                            latitude = lat,
+                            longitude = lon,
+                            selected = true,
+                            isDefault = shouldMakeDefault
+                        )
+                    )
                     withContext(Dispatchers.Main) { showAddDialog = false }
                 }
             }
@@ -360,7 +362,7 @@ fun MainScreen(
 private fun httpGet(urlString: String): String {
     val url = URL(urlString)
     val c = url.openConnection() as HttpURLConnection
-    c.setRequestProperty("User-Agent", "GeoWeatherApp")
+    c.setRequestProperty("User-Agent", "GigaWeatherApp")
     c.connectTimeout = 12000
     c.readTimeout = 12000
     BufferedReader(InputStreamReader(c.inputStream, StandardCharsets.UTF_8)).use { reader ->

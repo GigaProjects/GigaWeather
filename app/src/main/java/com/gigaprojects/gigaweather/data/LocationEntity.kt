@@ -1,4 +1,4 @@
-package com.freetime.geoweather.data
+package com.gigaprojects.gigaweather.data
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey

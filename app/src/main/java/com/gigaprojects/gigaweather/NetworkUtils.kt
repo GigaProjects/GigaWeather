@@ -1,4 +1,4 @@
-package com.freetime.geoweather
+package com.gigaprojects.gigaweather
 
 import java.io.BufferedReader
 import java.io.InputStreamReader
@@ -10,7 +10,7 @@ object NetworkUtils {
     fun httpGet(urlString: String, token: String? = null): String {
         val url = URL(urlString)
         val c = url.openConnection() as HttpURLConnection
-        c.setRequestProperty("User-Agent", "GeoWeatherApp")
+        c.setRequestProperty("User-Agent", "GigaWeatherApp")
         token?.let { c.setRequestProperty("Authorization", "Bearer $it") }
         c.connectTimeout = 60000
         c.readTimeout = 60000

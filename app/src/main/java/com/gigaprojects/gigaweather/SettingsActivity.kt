@@ -1,7 +1,6 @@
-package com.freetime.geoweather
+package com.gigaprojects.gigaweather
 
 import android.content.Context
-import android.content.Intent
 import android.content.SharedPreferences
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -21,7 +20,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
-import com.freetime.geoweather.ui.theme.GeoWeatherTheme
+import com.gigaprojects.gigaweather.ui.theme.GigaWeatherTheme
 
 class SettingsActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -37,7 +36,7 @@ class SettingsActivity : ComponentActivity() {
 
             val darkTheme = if (useSystemTheme.value) isSystemInDarkTheme() else darkModeEnabled.value
             
-            GeoWeatherTheme(darkTheme = darkTheme, dynamicColor = dynamicColor.value) {
+            GigaWeatherTheme(darkTheme = darkTheme, dynamicColor = dynamicColor.value) {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     SettingsScreen(
                         modifier = Modifier.padding(innerPadding),
@@ -118,19 +117,12 @@ fun SettingsScreen(modifier: Modifier = Modifier, onBack: () -> Unit) {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Top Bar area
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             FilledTonalButton(onClick = onBack) {
                 Text(stringResource(R.string.back_btn))
-            }
-
-            FilledTonalButton(onClick = {
-                context.startActivity(Intent(context, ChangeLogActivity::class.java))
-            }) {
-                Text(stringResource(R.string.open_change_log))
             }
         }
         

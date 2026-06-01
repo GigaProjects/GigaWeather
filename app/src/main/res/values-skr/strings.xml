@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">GeoWeather</string>
+    <string name="app_name">GigaWeather</string>
     <string name="backToSupPag">مدد ورقے تے واپس ڄلو</string>
     <string name="DonViaOxaPay">OxaPay نال عطیہ کرو</string>
     <string name="DonViaCoin">Coinbase نال عطیہ کرو</string>

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">GeoWeather</string>
+    <string name="app_name">GigaWeather</string>
     <string name="JoiOffDisSer">ເຂົ້າຮ່ວມເຊີບເວີ Discord ທາງການ</string>
     <string name="DonPers">ຍັງບໍ່ມີໃຜບໍລິຈາກເທື່ອ.</string>
     <string name="DonTXT2">ຖ້າທ່ານຕ້ອງການຊ່ວຍຮັກສາແອັບນີ້ ແລະ ແອັບອື່ນໆອີກຫຼາຍແອັບ ພຽງແຕ່ບໍລິຈາກ ແລະ ສ້າງປີ້ (Ticket) ໃນເຊີບເວີ Discord ຂອງຂ້ອຍ ໂດຍລະບຸຊື່ຂອງທ່ານ ແລະ ຊ່ອງທາງການບໍລິຈາກທີ່ທ່ານໃຊ້ ແລ້ວຂ້ອຍຈະເພີ່ມລາຍຊື່ທ່ານໄວ້ບ່ອນນີ້.</string>
@@ -145,7 +145,7 @@
     <string name="historical_trends_label">ແນວໂນ້ມຍ້ອນຫຼັງ (7 ມື້ຜ່ານມາ)</string>
     <string name="trend_max">ສູງສຸດ</string>
     <string name="trend_min">ຕ່ຳສຸດ</string>
-    <string name="widget_label">GeoWeather ຂະໜາດນ້ອຍ</string>
+    <string name="widget_label">GigaWeather Small</string>
     <string name="widget_loading">ກຳລັງໂຫຼດ...</string>
     <string name="no_location_selected">ບໍ່ມີສະຖານທີ່</string>
     <string name="error_connection">ຂໍ້ຜິດພາດ: ກວດສອບການເຊື່ອມຕໍ່</string>

@@ -1,4 +1,4 @@
-package com.freetime.geoweather
+package com.gigaprojects.gigaweather
 
 import android.content.SharedPreferences
 import androidx.compose.runtime.*

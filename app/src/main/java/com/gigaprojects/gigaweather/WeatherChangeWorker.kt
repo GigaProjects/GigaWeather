@@ -1,4 +1,4 @@
-package com.freetime.geoweather
+package com.gigaprojects.gigaweather
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -8,7 +8,7 @@ import android.content.Intent
 import androidx.core.app.NotificationCompat
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
-import com.freetime.geoweather.data.LocationDatabase
+import com.gigaprojects.gigaweather.data.LocationDatabase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONObject

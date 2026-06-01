@@ -1,11 +1,11 @@
-package com.freetime.geoweather.ui
+package com.gigaprojects.gigaweather.ui
 
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
-import com.freetime.geoweather.data.LocationDao
-import com.freetime.geoweather.data.LocationDatabase
-import com.freetime.geoweather.data.LocationEntity
+import com.gigaprojects.gigaweather.data.LocationDao
+import com.gigaprojects.gigaweather.data.LocationDatabase
+import com.gigaprojects.gigaweather.data.LocationEntity
 
 class LocationsViewModel(application: Application) : AndroidViewModel(application) {
 

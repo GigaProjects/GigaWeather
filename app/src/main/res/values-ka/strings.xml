@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">GeoWeather</string>
+    <string name="app_name">GigaWeather</string>
     <string name="backToSupPag">Go Back to the Support Page</string>
     <string name="JoiOffDisSer">Join the Official Discord Server</string>
     <string name="DonPers">No one made a Donation yet.</string>
