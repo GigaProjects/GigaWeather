@@ -156,12 +156,14 @@ fun WeatherDetailScreen(
             
             val lastUpdated = entity?.lastUpdated
             val dataAgeMinutes = if (lastUpdated != null) (currentTime - lastUpdated) / (1000 * 60) else Long.MAX_VALUE
+            val cachedWeatherData = entity?.weatherData
+            val cacheHasPrecipitation = cachedWeatherData?.let { hasPrecipitationData(it) } ?: false
 
             var json: String? = null
             var aqiJsonResponse: String? = null
 
-            if (!forceRefresh && entity?.weatherData != null && dataAgeMinutes < 30) {
-                json = entity.weatherData
+            if (!forceRefresh && cachedWeatherData != null && cacheHasPrecipitation && dataAgeMinutes < 30) {
+                json = cachedWeatherData
                 weatherJson = json
             } else {
                 val url = if (weatherProvider == "weatherapi" && weatherApiKey.isNotEmpty()) {
@@ -540,13 +542,11 @@ fun HourlyForecastSection(list: List<HourlyForecast>, tempUnit: String) {
                         Text(forecast.time, style = MaterialTheme.typography.labelMedium)
                         Icon(painter = painterResource(WeatherIconMapper.getWeatherIcon(forecast.weatherCode)), contentDescription = null, modifier = Modifier.size(32.dp), tint = Color.Unspecified)
                         Text("$displayTemp$tempSuffix", style = MaterialTheme.typography.titleSmall)
-                        if (forecast.precipitationMm > 0.0) {
-                            Text(
-                                text = formatRainAmount(forecast.precipitationMm),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
+                        Text(
+                            text = stringResource(R.string.rain_amount_label, formatRainAmount(forecast.precipitationMm)),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
                     }
                 }
             }
@@ -565,6 +565,18 @@ private fun httpGet(urlString: String): String {
         var line: String?
         while (reader.readLine().also { line = it } != null) sb.append(line)
         return sb.toString()
+    }
+}
+
+fun hasPrecipitationData(json: String): Boolean {
+    return try {
+        val obj = JSONObject(json)
+        val hourly = obj.optJSONObject("hourly")
+        val daily = obj.optJSONObject("daily")
+
+        hourly?.has("precipitation") == true && daily?.has("precipitation_sum") == true
+    } catch (_: Exception) {
+        false
     }
 }
 
