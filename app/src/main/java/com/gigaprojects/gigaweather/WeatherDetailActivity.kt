@@ -490,7 +490,9 @@ fun WeatherDetailsGrid(weatherObj: JSONObject, aqiJson: String?, tempUnit: Strin
         val currentIndex = if (hourly != null) getCurrentHourIndex(hourly.getJSONArray("time")) else -1
         val windVal = current.getDouble("windspeed")
         val feelsVal = if (currentIndex >= 0) hourly?.getJSONArray("apparent_temperature")?.optDouble(currentIndex, current.getDouble("temperature")) ?: current.getDouble("temperature") else current.getDouble("temperature")
-        val humVal = if (currentIndex >= 0) hourly?.getJSONArray("relative_humidity_2m")?.optInt(currentIndex, 0) ?: 0 else 0
+        val humidityValues = hourly?.optJSONArray("relative_humidity_2m")
+            ?: hourly?.optJSONArray("relativehumidity_2m")
+        val humVal = if (currentIndex >= 0) humidityValues?.optInt(currentIndex, 0) ?: 0 else 0
         Triple(windVal, feelsVal, humVal)
     }
 
