@@ -49,7 +49,6 @@ import com.gigaprojects.gigaweather.ui.theme.GigaWeatherTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
@@ -139,7 +138,6 @@ fun WeatherDetailScreen(
     val qweatherApiKey by sharedPreferences.collectStringAsState("qweather_api_key", "")
 
     var weatherJson by remember { mutableStateOf<String?>(null) }
-    var aqiJson by remember { mutableStateOf<String?>(null) }
     var moonPhaseName by remember { mutableStateOf<String?>(null) }
     var forecastList by remember { mutableStateOf<List<DailyForecast>>(emptyList()) }
     var hourlyForecastList by remember { mutableStateOf<List<HourlyForecast>>(emptyList()) }
@@ -215,25 +213,8 @@ fun WeatherDetailScreen(
         }
     }
 
-    suspend fun refreshAqiData() {
-        val aqiUrl = "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=$lat&longitude=$lon&hourly=european_aqi&timezone=auto"
-
-        val response = withContext(Dispatchers.IO) {
-            try {
-                withTimeoutOrNull(5000) {
-                    httpGet(aqiUrl)
-                }
-            } catch (e: Exception) {
-                null
-            }
-        }
-
-        aqiJson = response
-    }
-
     LaunchedEffect(Unit) {
         refreshWeatherData()
-        refreshAqiData()
     }
 
     Scaffold(
@@ -245,7 +226,7 @@ fun WeatherDetailScreen(
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back_nav_desc)) }
                 },
                 actions = {
-                    IconButton(onClick = { scope.launch { refreshWeatherData(true); refreshAqiData() } }, enabled = !isRefreshing) {
+                    IconButton(onClick = { scope.launch { refreshWeatherData(true) } }, enabled = !isRefreshing) {
                         if (isRefreshing) CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                         else Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh_nav_desc))
                     }
@@ -297,7 +278,7 @@ fun WeatherDetailScreen(
                 }
 
                 item {
-                    WeatherDetailsGrid(JSONObject(json), aqiJson, tempUnit, windUnit, weatherProvider)
+                    WeatherDetailsGrid(JSONObject(json), tempUnit, windUnit, weatherProvider)
                 }
 
                 item {
@@ -488,7 +469,7 @@ fun HistoricalTrendsSection(data: List<DailyForecast>, tempUnit: String) {
 }
 
 @Composable
-fun WeatherDetailsGrid(weatherObj: JSONObject, aqiJson: String?, tempUnit: String, windUnit: String, provider: String) {
+fun WeatherDetailsGrid(weatherObj: JSONObject, tempUnit: String, windUnit: String, provider: String) {
     val context = LocalContext.current
     val (wind, feelsLike, humidity) = if (provider == "weatherapi") {
         val current = weatherObj.getJSONObject("current")
@@ -511,7 +492,6 @@ fun WeatherDetailsGrid(weatherObj: JSONObject, aqiJson: String?, tempUnit: Strin
     val displayFeelsLike = if (tempUnit == "fahrenheit") (feelsLike * 9/5 + 32).toInt() else feelsLike.toInt()
     val tempSuffix = if (tempUnit == "fahrenheit") stringResource(R.string.temp_f_suffix) else stringResource(R.string.temp_c_suffix)
     val humiditySuffix = stringResource(R.string.humidity_suffix)
-    val europeanAqi = parseCurrentEuropeanAqi(aqiJson)
 
     Card(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -531,13 +511,6 @@ fun WeatherDetailsGrid(weatherObj: JSONObject, aqiJson: String?, tempUnit: Strin
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                     DetailItem(label = stringResource(R.string.sunrise_label), value = sunrise)
                     DetailItem(label = stringResource(R.string.sunset_label), value = sunset)
-                    if (europeanAqi != null) {
-                        DetailItem(
-                            label = stringResource(R.string.air_label),
-                            value = europeanAqi.toInt().toString(),
-                            valueColor = getEuropeanAqiColor(europeanAqi)
-                        )
-                    }
                 }
             }
         }
@@ -744,30 +717,6 @@ fun getCurrentHourIndex(timesArray: JSONArray): Int {
         if (cal.get(Calendar.HOUR_OF_DAY) == currentHour && cal.get(Calendar.DAY_OF_YEAR) == now.get(Calendar.DAY_OF_YEAR)) return i
     }
     return 0
-}
-
-fun parseCurrentEuropeanAqi(aqiJson: String?): Double? {
-    if (aqiJson == null) return null
-
-    return try {
-        val hourly = JSONObject(aqiJson).getJSONObject("hourly")
-        val times = hourly.getJSONArray("time")
-        val values = hourly.getJSONArray("european_aqi")
-        val currentIndex = getCurrentHourIndex(times)
-
-        values.optDouble(currentIndex).takeIf { !it.isNaN() }
-    } catch (_: Exception) {
-        null
-    }
-}
-
-fun getEuropeanAqiColor(aqi: Double): Color {
-    if (aqi <= 20.0) return Color(0xFF2E7D32)
-    if (aqi <= 40.0) return Color(0xFF7CB342)
-    if (aqi <= 60.0) return Color(0xFFF9A825)
-    if (aqi <= 80.0) return Color(0xFFEF6C00)
-    if (aqi <= 100.0) return Color(0xFFC62828)
-    return Color(0xFF6A1B9A)
 }
 
 fun formatTime(timeString: String): String {
