@@ -2,7 +2,15 @@
 
 GigaWeather is a Kotlin Android weather app built with Jetpack Compose.
 
-It is based on the open source GeoWeather project, with the app identity changed for GigaProjects and the original donation/auth backend surfaces removed.
+This project is a fork of [GeoWeather](https://f-droid.org/packages/com.freetime.geoweather/), customized for better user experience.
+
+## Main Improvements
+
+- English-only app packaging
+- Opens directly to the preferred saved city
+- Keeps other saved cities available without making the city list the default screen
+- Daily and hourly precipitation amounts in millimeters
+- Removed donation/auth/backend surfaces from the original app
 
 ## Features
 
@@ -10,6 +18,7 @@ It is based on the open source GeoWeather project, with the app identity changed
 - Current-location lookup
 - 7-day forecast
 - Hourly weather details
+- Compact European AQI air indicator
 - Celsius/Fahrenheit and km/h/mph settings
 - Material You dynamic colors
 - Home screen weather widget
@@ -17,15 +26,9 @@ It is based on the open source GeoWeather project, with the app identity changed
 
 ## Weather Data
 
-The app can run directly on the phone without a custom domain or backend.
+The app runs directly on the phone. It does not need a custom domain or private backend.
 
-By default it uses public Open-Meteo endpoints for forecast, geocoding, reverse geocoding, historical archive, and air quality data. Optional provider settings are still available in the app settings.
-
-## Android Identity
-
-- App name: `GigaWeather`
-- Application ID: `com.gigaprojects.gigaweather`
-- Minimum SDK: 26
+By default it uses public Open-Meteo endpoints for forecast, geocoding, reverse geocoding, historical archive, and air quality data.
 
 ## Build
 
@@ -33,7 +36,7 @@ By default it uses public Open-Meteo endpoints for forecast, geocoding, reverse 
 ./gradlew assembleDebug
 ```
 
-The debug APK will be generated under `app/build/outputs/apk/debug/`.
+The APK is generated under `app/build/outputs/apk/debug/`.
 
 ## License
 

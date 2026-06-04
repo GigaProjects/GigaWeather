@@ -169,10 +169,10 @@ fun WeatherDetailScreen(
                 val url = if (weatherProvider == "weatherapi" && weatherApiKey.isNotEmpty()) {
                     "https://api.weatherapi.com/v1/forecast.json?key=$weatherApiKey&q=$lat,$lon&days=7&aqi=yes"
                 } else {
-                    "https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&current_weather=true&hourly=temperature_2m,weathercode,relativehumidity_2m,pressure_msl,apparent_temperature,precipitation,precipitation_probability&daily=weathercode,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_sum,precipitation_probability_max,windspeed_10m_max&timezone=auto"
+                    "https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,relative_humidity_2m,pressure_msl,apparent_temperature,precipitation,precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_sum,precipitation_probability_max,wind_speed_10m_max&timezone=auto"
                 }
                 
-                val aqiUrl = "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=$lat&longitude=$lon&hourly=pm10,pm2_5&timezone=auto"
+                val aqiUrl = "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=$lat&longitude=$lon&hourly=european_aqi&timezone=auto"
                 val histUrl = "https://archive-api.open-meteo.com/v1/archive?latitude=$lat&longitude=$lon&start_date=${getYesterdayDate(-7)}&end_date=${getYesterdayDate(0)}&daily=temperature_2m_max,temperature_2m_min&timezone=auto"
                 
                 json = withContext(Dispatchers.IO) { httpGet(url) }
@@ -256,8 +256,16 @@ fun WeatherDetailScreen(
                     val current = JSONObject(json).getJSONObject("current")
                     current.getDouble("temp_c") to 0
                 } else {
-                    val current = JSONObject(json).getJSONObject("current_weather")
-                    current.getDouble("temperature") to current.getInt("weathercode")
+                    val weatherObj = JSONObject(json)
+                    val current = weatherObj.optJSONObject("current")
+                    val legacyCurrent = weatherObj.optJSONObject("current_weather")
+
+                    if (current != null) {
+                        current.getDouble("temperature_2m") to current.getInt("weather_code")
+                    } else {
+                        val fallbackCurrent = legacyCurrent ?: JSONObject()
+                        fallbackCurrent.getDouble("temperature") to fallbackCurrent.getInt("weathercode")
+                    }
                 }
                 
                 val displayTemp = if (tempUnit == "fahrenheit") (temp * 9/5 + 32).toInt() else temp.toInt()
@@ -283,7 +291,7 @@ fun WeatherDetailScreen(
                 }
 
                 item {
-                    WeatherDetailsGrid(JSONObject(json), tempUnit, windUnit, weatherProvider)
+                    WeatherDetailsGrid(JSONObject(json), aqiJson, tempUnit, windUnit, weatherProvider)
                 }
 
                 item {
@@ -474,18 +482,30 @@ fun HistoricalTrendsSection(data: List<DailyForecast>, tempUnit: String) {
 }
 
 @Composable
-fun WeatherDetailsGrid(weatherObj: JSONObject, tempUnit: String, windUnit: String, provider: String) {
+fun WeatherDetailsGrid(weatherObj: JSONObject, aqiJson: String?, tempUnit: String, windUnit: String, provider: String) {
     val context = LocalContext.current
     val (wind, feelsLike, humidity) = if (provider == "weatherapi") {
         val current = weatherObj.getJSONObject("current")
         Triple(current.getDouble("wind_kph"), current.getDouble("feelslike_c"), current.getInt("humidity"))
     } else {
-        val current = weatherObj.getJSONObject("current_weather")
+        val current = weatherObj.optJSONObject("current")
+        val legacyCurrent = weatherObj.optJSONObject("current_weather")
         val hourly = weatherObj.optJSONObject("hourly")
         val currentIndex = if (hourly != null) getCurrentHourIndex(hourly.getJSONArray("time")) else -1
-        val windVal = current.getDouble("windspeed")
-        val feelsVal = if (currentIndex >= 0) hourly?.getJSONArray("apparent_temperature")?.optDouble(currentIndex, current.getDouble("temperature")) ?: current.getDouble("temperature") else current.getDouble("temperature")
-        val humVal = if (currentIndex >= 0) hourly?.getJSONArray("relativehumidity_2m")?.optInt(currentIndex, 0) ?: 0 else 0
+        val currentTemp = current?.optDouble("temperature_2m")
+            ?: legacyCurrent?.getDouble("temperature")
+            ?: 0.0
+        val windVal = current?.optDouble("wind_speed_10m")
+            ?: legacyCurrent?.getDouble("windspeed")
+            ?: 0.0
+        val humidityValues = hourly?.optJSONArray("relative_humidity_2m")
+            ?: hourly?.optJSONArray("relativehumidity_2m")
+        val feelsVal = if (currentIndex >= 0) {
+            hourly?.optJSONArray("apparent_temperature")?.optDouble(currentIndex, currentTemp) ?: currentTemp
+        } else {
+            currentTemp
+        }
+        val humVal = if (currentIndex >= 0) humidityValues?.optInt(currentIndex, 0) ?: 0 else 0
         Triple(windVal, feelsVal, humVal)
     }
 
@@ -495,6 +515,7 @@ fun WeatherDetailsGrid(weatherObj: JSONObject, tempUnit: String, windUnit: Strin
     val displayFeelsLike = if (tempUnit == "fahrenheit") (feelsLike * 9/5 + 32).toInt() else feelsLike.toInt()
     val tempSuffix = if (tempUnit == "fahrenheit") stringResource(R.string.temp_f_suffix) else stringResource(R.string.temp_c_suffix)
     val humiditySuffix = stringResource(R.string.humidity_suffix)
+    val europeanAqi = parseCurrentEuropeanAqi(aqiJson)
 
     Card(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -514,6 +535,13 @@ fun WeatherDetailsGrid(weatherObj: JSONObject, tempUnit: String, windUnit: Strin
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                     DetailItem(label = stringResource(R.string.sunrise_label), value = sunrise)
                     DetailItem(label = stringResource(R.string.sunset_label), value = sunset)
+                    if (europeanAqi != null) {
+                        DetailItem(
+                            label = stringResource(R.string.air_label),
+                            value = europeanAqi.toInt().toString(),
+                            valueColor = getEuropeanAqiColor(europeanAqi)
+                        )
+                    }
                 }
             }
         }
@@ -521,10 +549,10 @@ fun WeatherDetailsGrid(weatherObj: JSONObject, tempUnit: String, windUnit: Strin
 }
 
 @Composable
-fun DetailItem(label: String, value: String) {
+fun DetailItem(label: String, value: String, valueColor: Color = MaterialTheme.colorScheme.onSurface) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = valueColor)
     }
 }
 
@@ -611,7 +639,7 @@ fun parseForecastData(json: String): List<DailyForecast> {
         val times = daily.getJSONArray("time")
         val tMax = daily.getJSONArray("temperature_2m_max")
         val tMin = daily.getJSONArray("temperature_2m_min")
-        val codes = if (daily.has("weathercode")) daily.getJSONArray("weathercode") else null
+        val codes = daily.optJSONArray("weather_code") ?: daily.optJSONArray("weathercode")
         val precipitation = if (daily.has("precipitation_sum")) daily.getJSONArray("precipitation_sum") else null
         val precipitationChance = if (daily.has("precipitation_probability_max")) daily.getJSONArray("precipitation_probability_max") else null
         val df = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
@@ -639,7 +667,7 @@ fun parseHourlyForecastData(json: String): List<HourlyForecast> {
         val hourly = JSONObject(json).getJSONObject("hourly")
         val times = hourly.getJSONArray("time")
         val temps = hourly.getJSONArray("temperature_2m")
-        val codes = hourly.getJSONArray("weathercode")
+        val codes = hourly.optJSONArray("weather_code") ?: hourly.getJSONArray("weathercode")
         val precipitation = if (hourly.has("precipitation")) hourly.getJSONArray("precipitation") else null
         val precipitationChance = if (hourly.has("precipitation_probability")) hourly.getJSONArray("precipitation_probability") else null
         val inF = SimpleDateFormat("yyyy-MM-dd'T'HH:mm", Locale.getDefault())
@@ -720,6 +748,30 @@ fun getCurrentHourIndex(timesArray: JSONArray): Int {
         if (cal.get(Calendar.HOUR_OF_DAY) == currentHour && cal.get(Calendar.DAY_OF_YEAR) == now.get(Calendar.DAY_OF_YEAR)) return i
     }
     return 0
+}
+
+fun parseCurrentEuropeanAqi(aqiJson: String?): Double? {
+    if (aqiJson == null) return null
+
+    return try {
+        val hourly = JSONObject(aqiJson).getJSONObject("hourly")
+        val times = hourly.getJSONArray("time")
+        val values = hourly.getJSONArray("european_aqi")
+        val currentIndex = getCurrentHourIndex(times)
+
+        values.optDouble(currentIndex).takeIf { !it.isNaN() }
+    } catch (_: Exception) {
+        null
+    }
+}
+
+fun getEuropeanAqiColor(aqi: Double): Color {
+    if (aqi <= 20.0) return Color(0xFF2E7D32)
+    if (aqi <= 40.0) return Color(0xFF7CB342)
+    if (aqi <= 60.0) return Color(0xFFF9A825)
+    if (aqi <= 80.0) return Color(0xFFEF6C00)
+    if (aqi <= 100.0) return Color(0xFFC62828)
+    return Color(0xFF6A1B9A)
 }
 
 fun formatTime(timeString: String): String {
