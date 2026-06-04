@@ -138,6 +138,7 @@ fun WeatherDetailScreen(
     val qweatherApiKey by sharedPreferences.collectStringAsState("qweather_api_key", "")
 
     var weatherJson by remember { mutableStateOf<String?>(null) }
+    var aqiJson by remember { mutableStateOf<String?>(null) }
     var moonPhaseName by remember { mutableStateOf<String?>(null) }
     var forecastList by remember { mutableStateOf<List<DailyForecast>>(emptyList()) }
     var hourlyForecastList by remember { mutableStateOf<List<HourlyForecast>>(emptyList()) }
@@ -159,6 +160,7 @@ fun WeatherDetailScreen(
             val cacheHasPrecipitation = cachedWeatherData?.let { hasPrecipitationData(it) } ?: false
 
             var json: String? = null
+            var aqiJsonResponse: String? = null
 
             if (!forceRefresh && cachedWeatherData != null && cacheHasPrecipitation && dataAgeMinutes < 30) {
                 json = cachedWeatherData
@@ -167,12 +169,14 @@ fun WeatherDetailScreen(
                 val url = if (weatherProvider == "weatherapi" && weatherApiKey.isNotEmpty()) {
                     "https://api.weatherapi.com/v1/forecast.json?key=$weatherApiKey&q=$lat,$lon&days=7&aqi=yes"
                 } else {
-                    "https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&current_weather=true&hourly=temperature_2m,weathercode,relative_humidity_2m,pressure_msl,apparent_temperature,precipitation,precipitation_probability&daily=weathercode,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_sum,precipitation_probability_max,windspeed_10m_max&timezone=auto"
+                    "https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&current_weather=true&hourly=temperature_2m,weathercode,relativehumidity_2m,pressure_msl,apparent_temperature,precipitation,precipitation_probability&daily=weathercode,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_sum,precipitation_probability_max,windspeed_10m_max&timezone=auto"
                 }
                 
+                val aqiUrl = "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=$lat&longitude=$lon&hourly=pm10,pm2_5&timezone=auto"
                 val histUrl = "https://archive-api.open-meteo.com/v1/archive?latitude=$lat&longitude=$lon&start_date=${getYesterdayDate(-7)}&end_date=${getYesterdayDate(0)}&daily=temperature_2m_max,temperature_2m_min&timezone=auto"
                 
                 json = withContext(Dispatchers.IO) { httpGet(url) }
+                aqiJsonResponse = withContext(Dispatchers.IO) { try { httpGet(aqiUrl) } catch (e: Exception) { null } }
                 
                 try {
                     val histJson = withContext(Dispatchers.IO) { httpGet(histUrl) }
@@ -184,7 +188,7 @@ fun WeatherDetailScreen(
                         val moonUrl = "https://devapi.qweather.com/v7/astronomy/moon?location=$lon,$lat&key=$qweatherApiKey"
                         val mq = withContext(Dispatchers.IO) { httpGet(moonUrl) }
                         val obj = JSONObject(mq).getJSONArray("moonPhase").getJSONObject(0)
-                        moonPhaseName = obj.optString("name", "").takeIf { it.isNotBlank() }
+                        moonPhaseName = obj.optString("name", null)
                     } catch (_: Exception) {}
                 }
             }
@@ -196,14 +200,17 @@ fun WeatherDetailScreen(
             }
 
             weatherJson = json
-            if (weatherProvider == "weatherapi") {
-                parseWeatherApiData(json).let {
-                    forecastList = it.first
-                    hourlyForecastList = it.second
+            aqiJson = aqiJsonResponse
+            if (json != null) {
+                if (weatherProvider == "weatherapi") {
+                    parseWeatherApiData(json).let {
+                        forecastList = it.first
+                        hourlyForecastList = it.second
+                    }
+                } else {
+                    forecastList = parseForecastData(json)
+                    hourlyForecastList = parseHourlyForecastData(json)
                 }
-            } else {
-                forecastList = parseForecastData(json)
-                hourlyForecastList = parseHourlyForecastData(json)
             }
             errorMessage = null
         } catch (e: Exception) {
@@ -213,9 +220,7 @@ fun WeatherDetailScreen(
         }
     }
 
-    LaunchedEffect(Unit) {
-        refreshWeatherData()
-    }
+    LaunchedEffect(Unit) { refreshWeatherData() }
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -480,9 +485,7 @@ fun WeatherDetailsGrid(weatherObj: JSONObject, tempUnit: String, windUnit: Strin
         val currentIndex = if (hourly != null) getCurrentHourIndex(hourly.getJSONArray("time")) else -1
         val windVal = current.getDouble("windspeed")
         val feelsVal = if (currentIndex >= 0) hourly?.getJSONArray("apparent_temperature")?.optDouble(currentIndex, current.getDouble("temperature")) ?: current.getDouble("temperature") else current.getDouble("temperature")
-        val humidityValues = hourly?.optJSONArray("relative_humidity_2m")
-            ?: hourly?.optJSONArray("relativehumidity_2m")
-        val humVal = if (currentIndex >= 0) humidityValues?.optInt(currentIndex, 0) ?: 0 else 0
+        val humVal = if (currentIndex >= 0) hourly?.getJSONArray("relativehumidity_2m")?.optInt(currentIndex, 0) ?: 0 else 0
         Triple(windVal, feelsVal, humVal)
     }
 
@@ -518,10 +521,10 @@ fun WeatherDetailsGrid(weatherObj: JSONObject, tempUnit: String, windUnit: Strin
 }
 
 @Composable
-fun DetailItem(label: String, value: String, valueColor: Color = MaterialTheme.colorScheme.onSurface) {
+fun DetailItem(label: String, value: String) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = valueColor)
+        Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
     }
 }
 
