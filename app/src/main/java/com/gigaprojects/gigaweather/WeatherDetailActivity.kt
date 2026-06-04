@@ -161,7 +161,7 @@ fun WeatherDetailScreen(
 
             var json: String? = null
             var aqiJsonResponse: String? = null
-            val aqiUrl = "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=$lat&longitude=$lon&hourly=pm10,pm2_5&timezone=auto"
+            val aqiUrl = "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=$lat&longitude=$lon&hourly=european_aqi&timezone=auto"
 
             if (!forceRefresh && cachedWeatherData != null && cacheHasPrecipitation && dataAgeMinutes < 30) {
                 json = cachedWeatherData
@@ -500,7 +500,7 @@ fun WeatherDetailsGrid(weatherObj: JSONObject, aqiJson: String?, tempUnit: Strin
     val displayFeelsLike = if (tempUnit == "fahrenheit") (feelsLike * 9/5 + 32).toInt() else feelsLike.toInt()
     val tempSuffix = if (tempUnit == "fahrenheit") stringResource(R.string.temp_f_suffix) else stringResource(R.string.temp_c_suffix)
     val humiditySuffix = stringResource(R.string.humidity_suffix)
-    val pm25 = parseCurrentPm25(aqiJson)
+    val europeanAqi = parseCurrentEuropeanAqi(aqiJson)
 
     Card(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -520,11 +520,11 @@ fun WeatherDetailsGrid(weatherObj: JSONObject, aqiJson: String?, tempUnit: Strin
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                     DetailItem(label = stringResource(R.string.sunrise_label), value = sunrise)
                     DetailItem(label = stringResource(R.string.sunset_label), value = sunset)
-                    if (pm25 != null) {
+                    if (europeanAqi != null) {
                         DetailItem(
                             label = stringResource(R.string.air_label),
-                            value = pm25.toInt().toString(),
-                            valueColor = getPm25Color(pm25)
+                            value = europeanAqi.toInt().toString(),
+                            valueColor = getEuropeanAqiColor(europeanAqi)
                         )
                     }
                 }
@@ -735,13 +735,13 @@ fun getCurrentHourIndex(timesArray: JSONArray): Int {
     return 0
 }
 
-fun parseCurrentPm25(aqiJson: String?): Double? {
+fun parseCurrentEuropeanAqi(aqiJson: String?): Double? {
     if (aqiJson == null) return null
 
     return try {
         val hourly = JSONObject(aqiJson).getJSONObject("hourly")
         val times = hourly.getJSONArray("time")
-        val values = hourly.getJSONArray("pm2_5")
+        val values = hourly.getJSONArray("european_aqi")
         val currentIndex = getCurrentHourIndex(times)
 
         values.optDouble(currentIndex).takeIf { !it.isNaN() }
@@ -750,11 +750,12 @@ fun parseCurrentPm25(aqiJson: String?): Double? {
     }
 }
 
-fun getPm25Color(pm25: Double): Color {
-    if (pm25 <= 12.0) return Color(0xFF2E7D32)
-    if (pm25 <= 35.4) return Color(0xFFF9A825)
-    if (pm25 <= 55.4) return Color(0xFFEF6C00)
-    if (pm25 <= 150.4) return Color(0xFFC62828)
+fun getEuropeanAqiColor(aqi: Double): Color {
+    if (aqi <= 20.0) return Color(0xFF2E7D32)
+    if (aqi <= 40.0) return Color(0xFF7CB342)
+    if (aqi <= 60.0) return Color(0xFFF9A825)
+    if (aqi <= 80.0) return Color(0xFFEF6C00)
+    if (aqi <= 100.0) return Color(0xFFC62828)
     return Color(0xFF6A1B9A)
 }
 
