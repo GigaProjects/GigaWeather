@@ -49,6 +49,7 @@ import com.gigaprojects.gigaweather.ui.theme.GigaWeatherTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
@@ -160,8 +161,6 @@ fun WeatherDetailScreen(
             val cacheHasPrecipitation = cachedWeatherData?.let { hasPrecipitationData(it) } ?: false
 
             var json: String? = null
-            var aqiJsonResponse: String? = null
-            val aqiUrl = "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=$lat&longitude=$lon&hourly=european_aqi&timezone=auto"
 
             if (!forceRefresh && cachedWeatherData != null && cacheHasPrecipitation && dataAgeMinutes < 30) {
                 json = cachedWeatherData
@@ -192,14 +191,6 @@ fun WeatherDetailScreen(
                 }
             }
 
-            aqiJsonResponse = withContext(Dispatchers.IO) {
-                try {
-                    httpGet(aqiUrl)
-                } catch (e: Exception) {
-                    null
-                }
-            }
-
             if (weatherProvider == "open_meteo") {
                 entity?.copy(weatherData = json, lastUpdated = currentTime)?.let {
                     withContext(Dispatchers.IO) { db.locationDao().updateLocation(it) }
@@ -207,7 +198,6 @@ fun WeatherDetailScreen(
             }
 
             weatherJson = json
-            aqiJson = aqiJsonResponse
             if (weatherProvider == "weatherapi") {
                 parseWeatherApiData(json).let {
                     forecastList = it.first
@@ -225,7 +215,26 @@ fun WeatherDetailScreen(
         }
     }
 
-    LaunchedEffect(Unit) { refreshWeatherData() }
+    suspend fun refreshAqiData() {
+        val aqiUrl = "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=$lat&longitude=$lon&hourly=european_aqi&timezone=auto"
+
+        val response = withContext(Dispatchers.IO) {
+            try {
+                withTimeoutOrNull(5000) {
+                    httpGet(aqiUrl)
+                }
+            } catch (e: Exception) {
+                null
+            }
+        }
+
+        aqiJson = response
+    }
+
+    LaunchedEffect(Unit) {
+        refreshWeatherData()
+        refreshAqiData()
+    }
 
     Scaffold(
         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -236,7 +245,7 @@ fun WeatherDetailScreen(
                     IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back_nav_desc)) }
                 },
                 actions = {
-                    IconButton(onClick = { scope.launch { refreshWeatherData(true) } }, enabled = !isRefreshing) {
+                    IconButton(onClick = { scope.launch { refreshWeatherData(true); refreshAqiData() } }, enabled = !isRefreshing) {
                         if (isRefreshing) CircularProgressIndicator(modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                         else Icon(Icons.Default.Refresh, contentDescription = stringResource(R.string.refresh_nav_desc))
                     }
