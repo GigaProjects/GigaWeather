@@ -161,6 +161,7 @@ fun WeatherDetailScreen(
 
             var json: String? = null
             var aqiJsonResponse: String? = null
+            val aqiUrl = "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=$lat&longitude=$lon&hourly=pm10,pm2_5&timezone=auto"
 
             if (!forceRefresh && cachedWeatherData != null && cacheHasPrecipitation && dataAgeMinutes < 30) {
                 json = cachedWeatherData
@@ -172,11 +173,9 @@ fun WeatherDetailScreen(
                     "https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&current_weather=true&hourly=temperature_2m,weathercode,relativehumidity_2m,pressure_msl,apparent_temperature,precipitation,precipitation_probability&daily=weathercode,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_sum,precipitation_probability_max,windspeed_10m_max&timezone=auto"
                 }
                 
-                val aqiUrl = "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=$lat&longitude=$lon&hourly=pm10,pm2_5&timezone=auto"
                 val histUrl = "https://archive-api.open-meteo.com/v1/archive?latitude=$lat&longitude=$lon&start_date=${getYesterdayDate(-7)}&end_date=${getYesterdayDate(0)}&daily=temperature_2m_max,temperature_2m_min&timezone=auto"
                 
                 json = withContext(Dispatchers.IO) { httpGet(url) }
-                aqiJsonResponse = withContext(Dispatchers.IO) { try { httpGet(aqiUrl) } catch (e: Exception) { null } }
                 
                 try {
                     val histJson = withContext(Dispatchers.IO) { httpGet(histUrl) }
@@ -188,8 +187,16 @@ fun WeatherDetailScreen(
                         val moonUrl = "https://devapi.qweather.com/v7/astronomy/moon?location=$lon,$lat&key=$qweatherApiKey"
                         val mq = withContext(Dispatchers.IO) { httpGet(moonUrl) }
                         val obj = JSONObject(mq).getJSONArray("moonPhase").getJSONObject(0)
-                        moonPhaseName = obj.optString("name", null)
+                        moonPhaseName = obj.optString("name", "").takeIf { it.isNotBlank() }
                     } catch (_: Exception) {}
+                }
+            }
+
+            aqiJsonResponse = withContext(Dispatchers.IO) {
+                try {
+                    httpGet(aqiUrl)
+                } catch (e: Exception) {
+                    null
                 }
             }
 
@@ -201,16 +208,14 @@ fun WeatherDetailScreen(
 
             weatherJson = json
             aqiJson = aqiJsonResponse
-            if (json != null) {
-                if (weatherProvider == "weatherapi") {
-                    parseWeatherApiData(json).let {
-                        forecastList = it.first
-                        hourlyForecastList = it.second
-                    }
-                } else {
-                    forecastList = parseForecastData(json)
-                    hourlyForecastList = parseHourlyForecastData(json)
+            if (weatherProvider == "weatherapi") {
+                parseWeatherApiData(json).let {
+                    forecastList = it.first
+                    hourlyForecastList = it.second
                 }
+            } else {
+                forecastList = parseForecastData(json)
+                hourlyForecastList = parseHourlyForecastData(json)
             }
             errorMessage = null
         } catch (e: Exception) {
@@ -283,7 +288,7 @@ fun WeatherDetailScreen(
                 }
 
                 item {
-                    WeatherDetailsGrid(JSONObject(json), tempUnit, windUnit, weatherProvider)
+                    WeatherDetailsGrid(JSONObject(json), aqiJson, tempUnit, windUnit, weatherProvider)
                 }
 
                 item {
@@ -474,7 +479,7 @@ fun HistoricalTrendsSection(data: List<DailyForecast>, tempUnit: String) {
 }
 
 @Composable
-fun WeatherDetailsGrid(weatherObj: JSONObject, tempUnit: String, windUnit: String, provider: String) {
+fun WeatherDetailsGrid(weatherObj: JSONObject, aqiJson: String?, tempUnit: String, windUnit: String, provider: String) {
     val context = LocalContext.current
     val (wind, feelsLike, humidity) = if (provider == "weatherapi") {
         val current = weatherObj.getJSONObject("current")
@@ -495,6 +500,7 @@ fun WeatherDetailsGrid(weatherObj: JSONObject, tempUnit: String, windUnit: Strin
     val displayFeelsLike = if (tempUnit == "fahrenheit") (feelsLike * 9/5 + 32).toInt() else feelsLike.toInt()
     val tempSuffix = if (tempUnit == "fahrenheit") stringResource(R.string.temp_f_suffix) else stringResource(R.string.temp_c_suffix)
     val humiditySuffix = stringResource(R.string.humidity_suffix)
+    val pm25 = parseCurrentPm25(aqiJson)
 
     Card(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
@@ -514,6 +520,13 @@ fun WeatherDetailsGrid(weatherObj: JSONObject, tempUnit: String, windUnit: Strin
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                     DetailItem(label = stringResource(R.string.sunrise_label), value = sunrise)
                     DetailItem(label = stringResource(R.string.sunset_label), value = sunset)
+                    if (pm25 != null) {
+                        DetailItem(
+                            label = stringResource(R.string.air_label),
+                            value = pm25.toInt().toString(),
+                            valueColor = getPm25Color(pm25)
+                        )
+                    }
                 }
             }
         }
@@ -521,10 +534,10 @@ fun WeatherDetailsGrid(weatherObj: JSONObject, tempUnit: String, windUnit: Strin
 }
 
 @Composable
-fun DetailItem(label: String, value: String) {
+fun DetailItem(label: String, value: String, valueColor: Color = MaterialTheme.colorScheme.onSurface) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
         Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(value, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = valueColor)
     }
 }
 
@@ -720,6 +733,29 @@ fun getCurrentHourIndex(timesArray: JSONArray): Int {
         if (cal.get(Calendar.HOUR_OF_DAY) == currentHour && cal.get(Calendar.DAY_OF_YEAR) == now.get(Calendar.DAY_OF_YEAR)) return i
     }
     return 0
+}
+
+fun parseCurrentPm25(aqiJson: String?): Double? {
+    if (aqiJson == null) return null
+
+    return try {
+        val hourly = JSONObject(aqiJson).getJSONObject("hourly")
+        val times = hourly.getJSONArray("time")
+        val values = hourly.getJSONArray("pm2_5")
+        val currentIndex = getCurrentHourIndex(times)
+
+        values.optDouble(currentIndex).takeIf { !it.isNaN() }
+    } catch (_: Exception) {
+        null
+    }
+}
+
+fun getPm25Color(pm25: Double): Color {
+    if (pm25 <= 12.0) return Color(0xFF2E7D32)
+    if (pm25 <= 35.4) return Color(0xFFF9A825)
+    if (pm25 <= 55.4) return Color(0xFFEF6C00)
+    if (pm25 <= 150.4) return Color(0xFFC62828)
+    return Color(0xFF6A1B9A)
 }
 
 fun formatTime(timeString: String): String {

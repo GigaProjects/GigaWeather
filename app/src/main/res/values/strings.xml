@@ -284,6 +284,7 @@
     <string name="PressureTXT">Pressure: %1$s hPa</string>
     <string name="SunriseTXT">Sunrise: %1$s</string>
     <string name="SunsetText">Sunset: %1$s</string>
+    <string name="air_label">Air</string>
     <string name="PrecipitationTXT">Precipitation: %1$s%%</string>
     <string name="MaxWindTXT">Max Wind: %1$s km/h</string>
     <string name="HourlyForecastTXT">Hourly Forecast</string>
