@@ -78,24 +78,19 @@ class MainActivity : ComponentActivity() {
         hideSystemBars()
         checkNotificationPermission()
 
+        val isCheckingInitialDestination = mutableStateOf(true)
         val db = LocationDatabase.getDatabase(this)
+
         lifecycleScope.launch {
-            val locations = withContext(Dispatchers.IO) {
-                db.locationDao().getAllLocationsSync()
+            val targetLocation = withContext(Dispatchers.IO) {
+                findLaunchLocation(db.locationDao().getAllLocationsSync())
             }
-            
-            val defaultLoc = locations.find { it.isDefault }
-            val selectedLoc = locations.find { it.selected }
-            val targetLoc = defaultLoc ?: selectedLoc ?: if (locations.size == 1) locations.first() else null
-            
-            if (targetLoc != null) {
-                val intent = Intent(this@MainActivity, WeatherDetailActivity::class.java).apply {
-                    putExtra("name", targetLoc.name)
-                    putExtra("lat", targetLoc.latitude)
-                    putExtra("lon", targetLoc.longitude)
-                }
-                startActivity(intent)
+
+            if (targetLocation != null) {
+                openWeatherDetail(targetLocation)
             }
+
+            isCheckingInitialDestination.value = false
         }
         
         setContent {
@@ -107,24 +102,23 @@ class MainActivity : ComponentActivity() {
             val darkTheme = if (useSystemTheme.value) isSystemInDarkTheme() else darkModeEnabled.value
             
             GigaWeatherTheme(darkTheme = darkTheme, dynamicColor = dynamicColor.value) {
-                MainScreen(
-                    onRequestLocationPermission = {
-                        requestLocationPermissionLauncher.launch(
-                            arrayOf(
-                                Manifest.permission.ACCESS_FINE_LOCATION,
-                                Manifest.permission.ACCESS_COARSE_LOCATION
+                if (isCheckingInitialDestination.value) {
+                    LaunchLoadingScreen()
+                } else {
+                    MainScreen(
+                        onRequestLocationPermission = {
+                            requestLocationPermissionLauncher.launch(
+                                arrayOf(
+                                    Manifest.permission.ACCESS_FINE_LOCATION,
+                                    Manifest.permission.ACCESS_COARSE_LOCATION
+                                )
                             )
-                        )
-                    },
-                    onOpenDetail = { name, lat, lon ->
-                        val intent = Intent(this@MainActivity, WeatherDetailActivity::class.java).apply {
-                            putExtra("name", name)
-                            putExtra("lat", lat)
-                            putExtra("lon", lon)
+                        },
+                        onOpenDetail = { name, lat, lon ->
+                            openWeatherDetail(name, lat, lon)
                         }
-                        startActivity(intent)
-                    }
-                )
+                    )
+                }
             }
         }
     }
@@ -150,6 +144,42 @@ class MainActivity : ComponentActivity() {
                 requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
             }
         }
+    }
+
+    private fun findLaunchLocation(locations: List<LocationEntity>): LocationEntity? {
+        val defaultLocation = locations.find { it.isDefault }
+        if (defaultLocation != null) return defaultLocation
+
+        val selectedLocation = locations.find { it.selected }
+        if (selectedLocation != null) return selectedLocation
+
+        if (locations.size == 1) return locations.first()
+
+        return null
+    }
+
+    private fun openWeatherDetail(location: LocationEntity) {
+        openWeatherDetail(location.name, location.latitude, location.longitude)
+    }
+
+    private fun openWeatherDetail(name: String, latitude: Double, longitude: Double) {
+        val intent = Intent(this, WeatherDetailActivity::class.java).apply {
+            putExtra("name", name)
+            putExtra("lat", latitude)
+            putExtra("lon", longitude)
+        }
+
+        startActivity(intent)
+    }
+}
+
+@Composable
+fun LaunchLoadingScreen() {
+    Box(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
+    ) {
+        CircularProgressIndicator()
     }
 }
 
