@@ -18,9 +18,8 @@ This project is a fork of [GeoWeather](https://f-droid.org/packages/com.freetime
 - Current-location lookup
 - 7-day forecast
 - Hourly weather details
-- Compact European AQI air indicator
+- Compact European AQI air indicator with color-coded levels
 - Celsius/Fahrenheit and km/h/mph settings
-- Material You dynamic colors
 - Home screen weather widget
 - Weather notifications
 
