@@ -161,6 +161,7 @@ fun WeatherDetailScreen(
 
             var json: String? = null
             var aqiJsonResponse: String? = null
+            val aqiUrl = "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=$lat&longitude=$lon&hourly=european_aqi&timezone=auto"
 
             if (!forceRefresh && cachedWeatherData != null && cacheHasPrecipitation && dataAgeMinutes < 30) {
                 json = cachedWeatherData
@@ -172,11 +173,9 @@ fun WeatherDetailScreen(
                     "https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,relative_humidity_2m,pressure_msl,apparent_temperature,precipitation,precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_sum,precipitation_probability_max,wind_speed_10m_max&timezone=auto"
                 }
                 
-                val aqiUrl = "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=$lat&longitude=$lon&hourly=european_aqi&timezone=auto"
                 val histUrl = "https://archive-api.open-meteo.com/v1/archive?latitude=$lat&longitude=$lon&start_date=${getYesterdayDate(-7)}&end_date=${getYesterdayDate(0)}&daily=temperature_2m_max,temperature_2m_min&timezone=auto"
                 
                 json = withContext(Dispatchers.IO) { httpGet(url) }
-                aqiJsonResponse = withContext(Dispatchers.IO) { try { httpGet(aqiUrl) } catch (e: Exception) { null } }
                 
                 try {
                     val histJson = withContext(Dispatchers.IO) { httpGet(histUrl) }
@@ -192,6 +191,8 @@ fun WeatherDetailScreen(
                     } catch (_: Exception) {}
                 }
             }
+
+            aqiJsonResponse = withContext(Dispatchers.IO) { try { httpGet(aqiUrl) } catch (e: Exception) { null } }
 
             if (weatherProvider == "open_meteo") {
                 entity?.copy(weatherData = json, lastUpdated = currentTime)?.let {
