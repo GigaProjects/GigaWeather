@@ -9,6 +9,7 @@ This project is a fork of [GeoWeather](https://f-droid.org/packages/com.freetime
 - English-only app packaging
 - Opens directly to the preferred saved city
 - Keeps other saved cities available without making the city list the default screen
+- Future-only 7-day forecast
 - Daily and hourly precipitation amounts in millimeters
 - Removed donation/auth/backend surfaces from the original app
 
@@ -16,7 +17,7 @@ This project is a fork of [GeoWeather](https://f-droid.org/packages/com.freetime
 
 - Multiple saved locations
 - Current-location lookup
-- 7-day forecast
+- 7-day forecast for upcoming days
 - Hourly weather details
 - Compact European AQI air indicator with color-coded levels
 - Celsius/Fahrenheit and km/h/mph settings
