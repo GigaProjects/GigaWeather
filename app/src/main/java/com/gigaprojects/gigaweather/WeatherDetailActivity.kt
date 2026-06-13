@@ -59,6 +59,9 @@ import java.nio.charset.StandardCharsets
 import java.text.SimpleDateFormat
 import java.util.*
 
+private const val FUTURE_FORECAST_DAYS = 7
+private const val FORECAST_REQUEST_DAYS = 8
+
 class WeatherDetailActivity : ComponentActivity() {
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -158,19 +161,22 @@ fun WeatherDetailScreen(
             val dataAgeMinutes = if (lastUpdated != null) (currentTime - lastUpdated) / (1000 * 60) else Long.MAX_VALUE
             val cachedWeatherData = entity?.weatherData
             val cacheHasPrecipitation = cachedWeatherData?.let { hasPrecipitationData(it) } ?: false
+            val cacheHasFutureForecast = cachedWeatherData?.let {
+                hasFutureForecastDays(it, FUTURE_FORECAST_DAYS)
+            } ?: false
 
             var json: String? = null
             var aqiJsonResponse: String? = null
             val aqiUrl = "https://air-quality-api.open-meteo.com/v1/air-quality?latitude=$lat&longitude=$lon&hourly=european_aqi&timezone=auto"
 
-            if (!forceRefresh && cachedWeatherData != null && cacheHasPrecipitation && dataAgeMinutes < 30) {
+            if (!forceRefresh && cachedWeatherData != null && cacheHasPrecipitation && cacheHasFutureForecast && dataAgeMinutes < 30) {
                 json = cachedWeatherData
                 weatherJson = json
             } else {
                 val url = if (weatherProvider == "weatherapi" && weatherApiKey.isNotEmpty()) {
-                    "https://api.weatherapi.com/v1/forecast.json?key=$weatherApiKey&q=$lat,$lon&days=7&aqi=yes"
+                    "https://api.weatherapi.com/v1/forecast.json?key=$weatherApiKey&q=$lat,$lon&days=$FORECAST_REQUEST_DAYS&aqi=yes"
                 } else {
-                    "https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,relative_humidity_2m,pressure_msl,apparent_temperature,precipitation,precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_sum,precipitation_probability_max,wind_speed_10m_max&timezone=auto"
+                    "https://api.open-meteo.com/v1/forecast?latitude=$lat&longitude=$lon&current=temperature_2m,weather_code,wind_speed_10m&hourly=temperature_2m,weather_code,relative_humidity_2m,pressure_msl,apparent_temperature,precipitation,precipitation_probability&daily=weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_sum,precipitation_probability_max,wind_speed_10m_max&timezone=auto&forecast_days=$FORECAST_REQUEST_DAYS"
                 }
                 
                 val histUrl = "https://archive-api.open-meteo.com/v1/archive?latitude=$lat&longitude=$lon&start_date=${getYesterdayDate(-7)}&end_date=${getYesterdayDate(0)}&daily=temperature_2m_max,temperature_2m_min&timezone=auto"
@@ -209,7 +215,11 @@ fun WeatherDetailScreen(
                         hourlyForecastList = it.second
                     }
                 } else {
-                    forecastList = parseForecastData(json)
+                    forecastList = parseForecastData(
+                        json = json,
+                        futureOnly = true,
+                        limit = FUTURE_FORECAST_DAYS
+                    )
                     hourlyForecastList = parseHourlyForecastData(json)
                 }
             }
@@ -609,6 +619,42 @@ fun hasPrecipitationData(json: String): Boolean {
     }
 }
 
+fun hasFutureForecastDays(json: String, requiredDays: Int): Boolean {
+    return try {
+        val obj = JSONObject(json)
+        val daily = obj.optJSONObject("daily") ?: return false
+        val times = daily.optJSONArray("time") ?: return false
+        val todayKey = getTodayKey(getResponseTimeZone(obj))
+        var futureDays = 0
+
+        for (i in 0 until times.length()) {
+            if (times.getString(i) > todayKey) {
+                futureDays += 1
+            }
+        }
+
+        futureDays >= requiredDays
+    } catch (_: Exception) {
+        false
+    }
+}
+
+fun getResponseTimeZone(obj: JSONObject): TimeZone {
+    val timeZoneName = obj.optString("timezone", "")
+    if (timeZoneName.isBlank()) return TimeZone.getDefault()
+
+    val timeZone = TimeZone.getTimeZone(timeZoneName)
+    if (timeZone.id == "GMT" && timeZoneName != "GMT") return TimeZone.getDefault()
+
+    return timeZone
+}
+
+fun getTodayKey(timeZone: TimeZone): String {
+    return SimpleDateFormat("yyyy-MM-dd", Locale.US).apply {
+        this.timeZone = timeZone
+    }.format(Date())
+}
+
 fun getYesterdayDate(daysAgo: Int): String {
     val cal = Calendar.getInstance()
     cal.add(Calendar.DAY_OF_YEAR, -daysAgo)
@@ -632,7 +678,11 @@ data class HourlyForecast(
     val precipitationChance: Int = 0
 )
 
-fun parseForecastData(json: String): List<DailyForecast> {
+fun parseForecastData(
+    json: String,
+    futureOnly: Boolean = false,
+    limit: Int? = null
+): List<DailyForecast> {
     val list = mutableListOf<DailyForecast>()
     try {
         val obj = JSONObject(json)
@@ -643,10 +693,19 @@ fun parseForecastData(json: String): List<DailyForecast> {
         val codes = daily.optJSONArray("weather_code") ?: daily.optJSONArray("weathercode")
         val precipitation = if (daily.has("precipitation_sum")) daily.getJSONArray("precipitation_sum") else null
         val precipitationChance = if (daily.has("precipitation_probability_max")) daily.getJSONArray("precipitation_probability_max") else null
-        val df = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-        val outF = SimpleDateFormat("EEE, dd. MMM", Locale.getDefault())
+        val responseTimeZone = getResponseTimeZone(obj)
+        val todayKey = getTodayKey(responseTimeZone)
+        val df = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).apply {
+            timeZone = responseTimeZone
+        }
+        val outF = SimpleDateFormat("EEE, dd. MMM", Locale.getDefault()).apply {
+            timeZone = responseTimeZone
+        }
         for (i in 0 until times.length()) {
-            val date = df.parse(times.getString(i))
+            val dateText = times.getString(i)
+            if (futureOnly && dateText <= todayKey) continue
+
+            val date = df.parse(dateText)
             list.add(
                 DailyForecast(
                     date = outF.format(date ?: Date()),
@@ -657,6 +716,8 @@ fun parseForecastData(json: String): List<DailyForecast> {
                     precipitationChance = precipitationChance?.optInt(i, 0) ?: 0
                 )
             )
+
+            if (limit != null && list.size >= limit) break
         }
     } catch (_: Exception) {}
     return list
@@ -700,21 +761,16 @@ fun parseWeatherApiData(json: String): Pair<List<DailyForecast>, List<HourlyFore
         val forecast = obj.getJSONObject("forecast").getJSONArray("forecastday")
         val outF = SimpleDateFormat("EEE, dd. MMM", Locale.getDefault())
         val df = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+        val todayKey = obj.optJSONObject("location")
+            ?.optString("localtime", "")
+            ?.takeIf { it.length >= 10 }
+            ?.take(10)
+            ?: SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
         
         for (i in 0 until forecast.length()) {
             val day = forecast.getJSONObject(i)
             val astro = day.getJSONObject("day")
-            val date = df.parse(day.getString("date"))
-            dailyList.add(
-                DailyForecast(
-                    date = outF.format(date ?: Date()),
-                    tempMax = astro.getDouble("maxtemp_c"),
-                    tempMin = astro.getDouble("mintemp_c"),
-                    weatherCode = 0,
-                    precipitationMm = astro.optDouble("totalprecip_mm", 0.0),
-                    precipitationChance = astro.optInt("daily_chance_of_rain", 0)
-                )
-            )
+            val dateText = day.getString("date")
             
             if (i == 0) {
                 val hours = day.getJSONArray("hour")
@@ -735,6 +791,21 @@ fun parseWeatherApiData(json: String): Pair<List<DailyForecast>, List<HourlyFore
                     }
                 }
             }
+
+            if (dateText <= todayKey) continue
+            if (dailyList.size >= FUTURE_FORECAST_DAYS) continue
+
+            val date = df.parse(dateText)
+            dailyList.add(
+                DailyForecast(
+                    date = outF.format(date ?: Date()),
+                    tempMax = astro.getDouble("maxtemp_c"),
+                    tempMin = astro.getDouble("mintemp_c"),
+                    weatherCode = 0,
+                    precipitationMm = astro.optDouble("totalprecip_mm", 0.0),
+                    precipitationChance = astro.optInt("daily_chance_of_rain", 0)
+                )
+            )
         }
     } catch (_: Exception) {}
     return dailyList to hourlyList
